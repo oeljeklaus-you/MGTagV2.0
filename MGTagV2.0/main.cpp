@@ -237,19 +237,23 @@ namespace mg {
                             //如果父节点有根节点，那么进一步判断
                         }else if(nodes[pos]->visit_Is_Root&&indegrees[pos]==0)
                         {
+                            //1.找到根所在的层次
+                            int rootLayer=nodeLabel2[nodeLabel2[pos].root].rl;
+                            
+                            TNode* p=bucket[rootLayer];
+                            
+                            //2.遍历链表，找到具体的节点
+                            while(p->val!=nodeLabel2[pos].root)
+                            {
+                                p=p->next;
+                            }
+                            
                             //如果有两个和两个以上的根节点，称为一个新的根节点
                             if((nodeLabel2[pos].root!=nodeLabel2[rootPos].root&&nodeLabel2[rootPos].root==rootPos)||nodes[pos]->flag)
                             {
                                 
                                 //删除以前保存该节点的拓扑顺序
-                                //1.找到根所在的层次
-                                int rootLayer=nodeLabel2[nodeLabel2[pos].root].rl;
-                                TNode* p=bucket[rootLayer];
-                                //2.遍历链表，找到具体的节点
-                                while(p->val!=nodeLabel2[pos].root)
-                                {
-                                    p=p->next;
-                                }
+                                
                                 //3.根据节点快速定位将值赋值为-1表示删除
                                 p->topOrder[nodeLabel2[pos].interval]=-1;
                                 //根节点是自己
@@ -265,6 +269,15 @@ namespace mg {
                             else{
                                 //如果不能成为一个新的根节点证明层次和以前的根节点层次相同
                                 nodeLabel2[pos].rl=nodeLabel2[nodeLabel2[pos].root].rl;
+                                //表明在同一子图内部，那么就进行图内异常点判断
+                                if(nodeLabel2[pos].root==nodeLabel2[rootPos].root)
+                                {
+                                    //是图内异常点
+                                    p->topOrder[nodeLabel2[pos].interval]=-2;
+                                    //将子节点放入父节点的拓扑顺序中
+                                    bucket[nodeLabel2[pos].rl]->topOrder.push_back(pos);
+                                }
+                                
                                 
                             }
                             //所在层次的节点数量加一
@@ -304,17 +317,28 @@ namespace mg {
         while(p)
         {
             nodeLabel1[p->val].new_id=count++;
+            //计算表示位置。
+            int pos=0;
             for(int i=0;i<p->topOrder.size();i++)
             {
-                if(p->topOrder[i]!=-1)
+                //这里判断
+                if(p->topOrder[i]>=0)
                 {
                     nodeLabel1[p->topOrder[i]].new_id=count;
                     count++;
                 }
-                else{
-                    //如果等于-1那么将会成为该点的跨子图点
-                    nodeLabel2[p->val].cross.push_back(p->topOrder[i]);
+                else if(p->topOrder[i]==-1){
+                    //找到设置-1的点的位置，这个点是跨子图点
+                    int childVal=nodes[p->val]->kids[pos]->val;
+                    //设置根节点的跨子图点
+                    nodeLabel2[p->val].cross.push_back(childVal);
+                }else{
+                    //找到设置-2的点的位置，这个点是跨子图点
+                    int childVal=nodes[p->val]->kids[pos]->val;
+                    //设置根节点的跨子图点
+                    nodeLabel2[p->val].excption.push_back(childVal);
                 }
+                pos++;
             }
             p=p->next;
         }
@@ -360,7 +384,6 @@ int main(int argc, const char * argv[]) {
     {
         cout<<"第"<<i<<"层的节点数:"<<layer_num[i]<<endl;
     }
-    int count=0;
     for(int i=0;i<bucket.size();i++)
     {
         TNode* p=bucket[i];
@@ -380,4 +403,3 @@ int main(int argc, const char * argv[]) {
     }
     return 0;
 }
-
